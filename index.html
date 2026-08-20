@@ -10,7 +10,6 @@
     #player-container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
     .media-element { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
     .active { display: block; }
-    #standby-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; z-index: 99; display: none; }
   </style>
 </head>
 <body>
@@ -18,49 +17,41 @@
   <div id="player-container">
     <img id="img-display" class="media-element" alt="Anúncio Comercial" />
     <video id="video-display" class="media-element" muted playsinline></video>
-    <div id="standby-screen"></div>
   </div>
 
   <script>
-    // FUNÇÃO QUE CONVERTE LINK DO GOOGLE DRIVE EM LINK DIRETO DE IMAGEM
-    function getDriveDirectUrl(url) {
-      if (url.includes('drive.google.com')) {
-        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
-          return `https://lh3.googleusercontent.com/d/${match[1]}`;
-        }
-      }
-      return url;
-    }
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwX6laG5CxgViS-b-HE2VIRGSV3rkD3jAHUkG39H-gtXTXnk-xzCwjaWhH2HEHS3oB2/exec';
 
-    // 1. COLE AQUI OS LINKS DAS SUAS IMAGENS DO GOOGLE DRIVE
-    let rawPlaylist = [
-      { type: 'image', src: 'https://drive.google.com/file/d/SEU_ID_AQUI_1/view?usp=sharing', duration: 8000 },
-      { type: 'image', src: 'https://drive.google.com/file/d/SEU_ID_AQUI_2/view?usp=sharing', duration: 5000 }
-    ];
-
-    // Converte os links do Google Drive automaticamente
-    let playlist = rawPlaylist.map(item => ({
-      ...item,
-      src: getDriveDirectUrl(item.src)
-    }));
-
+    let playlist = [];
     let currentIndex = 0;
-    let isClassActive = false;
     let timer = null;
 
     const imgDisplay = document.getElementById('img-display');
     const videoDisplay = document.getElementById('video-display');
-    const standbyScreen = document.getElementById('standby-screen');
+
+    async function fetchDriveFolderFiles() {
+      try {
+        const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+          playlist = data;
+
+          if (!timer && !imgDisplay.classList.contains('active') && !videoDisplay.classList.contains('active')) {
+            playNext();
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados do Apps Script:", error);
+      }
+    }
 
     function playNext() {
-      if (isClassActive) return;
+      if (playlist.length === 0) return;
 
       imgDisplay.classList.remove('active');
       videoDisplay.classList.remove('active');
       videoDisplay.pause();
-
-      if (playlist.length === 0) return;
 
       const item = playlist[currentIndex];
 
@@ -71,7 +62,7 @@
         timer = setTimeout(() => {
           advanceIndex();
           playNext();
-        }, item.duration || 5000);
+        }, item.duration || 8000);
 
       } else if (item.type === 'video') {
         videoDisplay.src = item.src;
@@ -95,9 +86,10 @@
       else if (docEl.webkitRequestFullscreen) { docEl.webkitRequestFullscreen(); }
     }
 
-    window.onload = () => {
+    window.onload = async () => {
       document.body.addEventListener('click', enableFullScreen, { once: true });
-      playNext();
+      await fetchDriveFolderFiles();
+      setInterval(fetchDriveFolderFiles, 300000);
     };
   </script>
 </body>
