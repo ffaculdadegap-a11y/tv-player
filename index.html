@@ -17,13 +17,12 @@
 
   <div id="player-container">
     <img id="img-display" class="media-element" alt="Anúncio Comercial" />
-    <div id="status-log">Iniciando busca de mídias...</div>
+    <div id="status-log">Carregando mídias da pasta...</div>
   </div>
 
   <script>
-    // Configurações principais
-    const FOLDER_ID = '13_3sFHmComXi5js05_xycBM534hphga'; // ID da pasta Painel - TV
-    const API_KEY = 'COLE_SUA_API_KEY_AQUI'; // Insira a API Key do Google Cloud / AI Studio
+    // ID da pasta "Painel - TV" extraído da URL do Google Drive
+    const FOLDER_ID = '13_3sFHmComXi5js05_xycBM534hphga';
 
     let playlist = [];
     let currentIndex = 0;
@@ -36,47 +35,68 @@
       if (logEl) logEl.innerText = msg;
     }
 
-    async function loadDriveFiles() {
-      log("Conectando ao Google Drive API...");
-      
-      const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,mimeType)&key=${API_KEY}`;
-
+    // Processa o feed XML público da pasta do Drive
+    window.parseDriveFeed = function(data) {
       try {
-        const response = await fetch(url);
-        const data = await response.json();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(data, "text/xml");
+        const entries = xmlDoc.getElementsByTagName("entry");
 
-        if (data.error) {
-          log("Erro na API: " + data.error.message);
-          return;
+        playlist = [];
+
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          const idEl = entry.getElementsByTagName("id")[0];
+          
+          if (idEl) {
+            const fullId = idEl.textContent;
+            const fileId = fullId.split('/').pop().split('?')[0];
+
+            // Monta o link direto de renderização de imagem do Googleusercontent
+            playlist.push({
+              src: `https://lh3.googleusercontent.com/d/${fileId}`,
+              duration: 8000
+            });
+          }
         }
 
-        if (data.files && data.files.length > 0) {
-          // Filta apenas imagens
-          const images = data.files.filter(f => f.mimeType.startsWith('image/'));
-
-          if (images.length === 0) {
-            log("Nenhuma imagem encontrada na pasta.");
-            return;
-          }
-
-          playlist = images.map(file => ({
-            src: `https://lh3.googleusercontent.com/d/${file.id}`,
-            duration: 8000
-          }));
-
-          log(`Mídias carregadas: ${playlist.length}`);
+        if (playlist.length > 0) {
+          log(`Mídias carregadas com sucesso: ${playlist.length}`);
           setTimeout(() => { if (logEl) logEl.style.display = 'none'; }, 3000);
 
           if (!timer && !imgDisplay.classList.contains('active')) {
             playNext();
           }
         } else {
-          log("Nenhum arquivo encontrado na pasta.");
+          log("Nenhum arquivo público encontrado na pasta.");
         }
-      } catch (err) {
-        log("Erro de conexão ao buscar mídias.");
-        console.error(err);
+      } catch (e) {
+        log("Erro ao processar dados da pasta.");
+        console.error(e);
       }
+    };
+
+    function loadFolderContent() {
+      log("Acessando pasta pública...");
+      
+      const oldScript = document.getElementById('feed-script');
+      if (oldScript) oldScript.remove();
+
+      // Utiliza a ponte YQL/AllOrigins para converter o RSS público da pasta sem bloqueio de CORS ou API Key
+      const feedUrl = `https://drive.google.com/host/${FOLDER_ID}`;
+      const script = document.createElement('script');
+      script.id = 'feed-script';
+      script.src = `https://api.allorigins.win/get?url=${encodeURIComponent('https://docs.google.com/feeds/xml/folder/' + FOLDER_ID)}&callback=handleAllOrigins`;
+      
+      window.handleAllOrigins = function(response) {
+        if (response && response.contents) {
+          parseDriveFeed(response.contents);
+        } else {
+          log("Erro de acesso ao conteúdo da pasta.");
+        }
+      };
+
+      document.body.appendChild(script);
     }
 
     function playNext() {
@@ -99,8 +119,8 @@
     }
 
     window.onload = () => {
-      loadDriveFiles();
-      setInterval(loadDriveFiles, 300000); // Atualiza o conteúdo a cada 5 minutos
+      loadFolderContent();
+      setInterval(loadFolderContent, 300000); // Recarrega novidades da pasta a cada 5 minutos
     };
   </script>
 </body>
