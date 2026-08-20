@@ -17,7 +17,7 @@
 
   <div id="player-container">
     <img id="img-display" class="media-element" alt="Anúncio Comercial" />
-    <div id="status-log">A carregar mídias do Google Drive...</div>
+    <div id="status-log">Carregando mídias do Google Drive...</div>
   </div>
 
   <script>
@@ -34,27 +34,34 @@
       if (logEl) logEl.innerText = msg;
     }
 
-    async function fetchDriveFolderFiles() {
-      try {
-        log("A ligar ao Google Drive...");
-        const response = await fetch(SCRIPT_URL);
-        const data = await response.json();
+    // Função global acionada pelo script do Google (JSONP)
+    window.loadPlaylist = function(data) {
+      if (Array.isArray(data) && data.length > 0) {
+        playlist = data;
+        log(`Mídias carregadas: ${data.length}`);
+        setTimeout(() => { if(logEl) logEl.style.display = 'none'; }, 3000);
 
-        if (Array.isArray(data) && data.length > 0) {
-          playlist = data;
-          log(`Mídias carregadas com sucesso: ${data.length}`);
-          setTimeout(() => { if(logEl) logEl.style.display = 'none'; }, 3000);
-
-          if (!timer && !imgDisplay.classList.contains('active')) {
-            playNext();
-          }
-        } else {
-          log("Nenhuma imagem encontrada na pasta.");
+        if (!timer && !imgDisplay.classList.contains('active')) {
+          playNext();
         }
-      } catch (error) {
-        log("Erro ao carregar mídias.");
-        console.error(error);
+      } else {
+        log("Nenhuma imagem encontrada na pasta do Drive.");
       }
+    };
+
+    function fetchDriveFolderFiles() {
+      log("Conectando ao Google Drive...");
+      
+      // Remove script anterior se existir
+      const oldScript = document.getElementById('jsonp-script');
+      if (oldScript) oldScript.remove();
+
+      // Cria a tag script dinamicamente para burlar o CORS
+      const script = document.createElement('script');
+      script.id = 'jsonp-script';
+      script.src = `${SCRIPT_URL}?callback=loadPlaylist&t=${new Date().getTime()}`;
+      script.onerror = () => log("Erro de conexão ao carregar o script.");
+      document.body.appendChild(script);
     }
 
     function playNext() {
@@ -79,9 +86,9 @@
       currentIndex = (currentIndex + 1) % playlist.length;
     }
 
-    window.onload = async () => {
-      await fetchDriveFolderFiles();
-      setInterval(fetchDriveFolderFiles, 300000);
+    window.onload = () => {
+      fetchDriveFolderFiles();
+      setInterval(fetchDriveFolderFiles, 300000); // Atualiza a cada 5 minutos
     };
   </script>
 </body>
