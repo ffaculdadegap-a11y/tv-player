@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player de Sinalização Digital</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #player-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .media-element {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* 1920x1080 proporcional sem distorção */
+      display: none;
+    }
+    .active {
+      display: block;
+    }
+    /* Módulo de modo repouso/aula */
+    #standby-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      z-index: 99;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="player-container">
+    <img id="img-display" class="media-element" alt="Anúncio Comercial" />
+    <video id="video-display" class="media-element" muted playsinline></video>
+    <div id="standby-screen"></div>
+  </div>
+
+  <script>
+    // 1. PLAYLIST DE EXEMPLO (Mídias e tempos de exibição)
+    // Na versão final, estes dados virão do seu servidor Back-end
+    let playlist = [
+      { type: 'image', src: 'https://via.placeholder.com/1920x1080/007bff/ffffff?text=Anuncio+1', duration: 8000 },
+      { type: 'image', src: 'https://via.placeholder.com/1920x1080/28a745/ffffff?text=Anuncio+2', duration: 5000 },
+      // { type: 'video', src: 'https://exemplo.com/comercial.mp4' } // Vídeo toca até o fim
+    ];
+
+    let currentIndex = 0;
+    let isClassActive = false; // Define se a TV deve ficar em modo tela preta
+    let timer = null;
+
+    const imgDisplay = document.getElementById('img-display');
+    const videoDisplay = document.getElementById('video-display');
+    const standbyScreen = document.getElementById('standby-screen');
+
+    // 2. FUNÇÃO PRINCIPAL DE REPRODUÇÃO DA PLAYLIST
+    function playNext() {
+      if (isClassActive) return; // Se for horário de aula, não renderiza mídias
+
+      // Limpa mídias anteriores
+      imgDisplay.classList.remove('active');
+      videoDisplay.classList.remove('active');
+      videoDisplay.pause();
+
+      if (playlist.length === 0) return;
+
+      const item = playlist[currentIndex];
+
+      if (item.type === 'image') {
+        imgDisplay.src = item.src;
+        imgDisplay.classList.add('active');
+        
+        // Passa para a próxima mídia após o tempo definido
+        timer = setTimeout(() => {
+          advanceIndex();
+          playNext();
+        }, item.duration || 5000);
+
+      } else if (item.type === 'video') {
+        videoDisplay.src = item.src;
+        videoDisplay.classList.add('active');
+        videoDisplay.play();
+
+        // Passa para a próxima mídia assim que o vídeo terminar
+        videoDisplay.onended = () => {
+          advanceIndex();
+          playNext();
+        };
+      }
+    }
+
+    function advanceIndex() {
+      currentIndex = (currentIndex + 1) % playlist.length;
+    }
+
+    // 3. CONSULTA DE HORÁRIO/AULA (Simula integração com Google Agenda via Back-end)
+    async function checkScheduleStatus() {
+      try {
+        // Substitua pelo endpoint da sua API no futuro:
+        // const response = await fetch('/api/tv-status?id=TV_SALA_01');
+        // const data = await response.json();
+        // isClassActive = data.isClassActive;
+
+        // Exemplo: Simulação manual para testes
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // Exemplo de regra: Fica em Standby/Tela Preta entre 08h e 12h
+        // isClassActive = (currentHour >= 8 && currentHour < 12);
+
+        if (isClassActive) {
+          standbyScreen.style.display = 'block';
+          clearTimeout(timer);
+          videoDisplay.pause();
+        } else {
+          if (standbyScreen.style.display === 'block') {
+            standbyScreen.style.display = 'none';
+            playNext(); // Retoma a exibição ao sair da aula
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao verificar agenda:", error);
+      }
+    }
+
+    // 4. MODO TELA CHEIA PARA SMART TVS
+    function enableFullScreen() {
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen();
+      } else if (docEl.webkitRequestFullscreen) { /* Safari / iOS / Tizen */
+        docEl.webkitRequestFullscreen();
+      }
+    }
+
+    // Inicia a execução ao carregar a página
+    window.onload = () => {
+      // Tenta acionar tela cheia ao primeiro clique/interação
+      document.body.addEventListener('click', enableFullScreen, { once: true });
+      
+      playNext();
+      
+      // Checa o status do Google Agenda a cada 30 segundos
+      setInterval(checkScheduleStatus, 30000);
+    };
+  </script>
+</body>
+</html>
