@@ -22,11 +22,28 @@
   </div>
 
   <script>
-    // 1. ALTERE SUAS MÍDIAS AQUI (Coloque os links diretos das suas imagens/vídeos)
-    let playlist = [
-      { type: 'image', src: 'https://picsum.photos/id/1060/1920/1080', duration: 5000 },
-      { type: 'image', src: 'https://picsum.photos/id/1018/1920/1080', duration: 5000 }
+    // FUNÇÃO QUE CONVERTE LINK DO GOOGLE DRIVE EM LINK DIRETO DE IMAGEM
+    function getDriveDirectUrl(url) {
+      if (url.includes('drive.google.com')) {
+        const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        }
+      }
+      return url;
+    }
+
+    // 1. COLE AQUI OS LINKS DAS SUAS IMAGENS DO GOOGLE DRIVE
+    let rawPlaylist = [
+      { type: 'image', src: 'https://drive.google.com/file/d/SEU_ID_AQUI_1/view?usp=sharing', duration: 8000 },
+      { type: 'image', src: 'https://drive.google.com/file/d/SEU_ID_AQUI_2/view?usp=sharing', duration: 5000 }
     ];
+
+    // Converte os links do Google Drive automaticamente
+    let playlist = rawPlaylist.map(item => ({
+      ...item,
+      src: getDriveDirectUrl(item.src)
+    }));
 
     let currentIndex = 0;
     let isClassActive = false;
