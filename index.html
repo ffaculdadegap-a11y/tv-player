@@ -10,6 +10,7 @@
     #player-container { position: relative; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
     .media-element { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
     .active { display: block; }
+    #status-log { position: absolute; bottom: 10px; left: 10px; color: #00ff00; font-family: monospace; font-size: 12px; z-index: 100; background: rgba(0,0,0,0.7); padding: 5px; }
   </style>
 </head>
 <body>
@@ -17,6 +18,7 @@
   <div id="player-container">
     <img id="img-display" class="media-element" alt="Anúncio Comercial" />
     <video id="video-display" class="media-element" muted playsinline></video>
+    <div id="status-log">Carregando mídias...</div>
   </div>
 
   <script>
@@ -28,21 +30,32 @@
 
     const imgDisplay = document.getElementById('img-display');
     const videoDisplay = document.getElementById('video-display');
+    const logEl = document.getElementById('status-log');
+
+    function log(msg) {
+      if (logEl) logEl.innerText = msg;
+    }
 
     async function fetchDriveFolderFiles() {
       try {
-        const response = await fetch(SCRIPT_URL, { redirect: 'follow' });
+        log("Conectando ao Google Drive...");
+        const response = await fetch(SCRIPT_URL);
         const data = await response.json();
 
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
           playlist = data;
+          log(`Mídias carregadas: ${data.length}`);
+          setTimeout(() => { if(logEl) logEl.style.display = 'none'; }, 3000);
 
           if (!timer && !imgDisplay.classList.contains('active') && !videoDisplay.classList.contains('active')) {
             playNext();
           }
+        } else {
+          log("Nenhuma mídia encontrada na pasta.");
         }
       } catch (error) {
-        console.error("Erro ao carregar dados do Apps Script:", error);
+        log("Erro ao carregar mídias. Verifique a permissão do Apps Script.");
+        console.error(error);
       }
     }
 
@@ -80,14 +93,7 @@
       currentIndex = (currentIndex + 1) % playlist.length;
     }
 
-    function enableFullScreen() {
-      const docEl = document.documentElement;
-      if (docEl.requestFullscreen) { docEl.requestFullscreen(); }
-      else if (docEl.webkitRequestFullscreen) { docEl.webkitRequestFullscreen(); }
-    }
-
     window.onload = async () => {
-      document.body.addEventListener('click', enableFullScreen, { once: true });
       await fetchDriveFolderFiles();
       setInterval(fetchDriveFolderFiles, 300000);
     };
